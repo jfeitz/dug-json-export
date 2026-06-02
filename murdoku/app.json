@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Murdoku",
-    "slug": "murdoku",
+    "name": "Cluedoku",
+    "slug": "cluedoku",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.murdoku.game",
+      "bundleIdentifier": "com.cluedoku.game",
       "buildNumber": "1"
     },
     "android": {
@@ -21,7 +21,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D0A08"
       },
-      "package": "com.murdoku.game"
+      "package": "com.cluedoku.game"
     },
     "web": {
       "favicon": "./assets/favicon.png"

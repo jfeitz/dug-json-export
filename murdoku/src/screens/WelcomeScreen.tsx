@@ -52,7 +52,7 @@ export function WelcomeScreen({ navigation }: Props) {
       <View style={styles.content}>
         <Animated.View style={{ opacity: titleOpacity, transform: [{ translateY: titleY }] }}>
           <Text style={styles.eyebrow}>A PUZZLE MURDER MYSTERY</Text>
-          <Text style={styles.title}>MURDOKU</Text>
+          <Text style={styles.title}>CLUEDOKU</Text>
           <View style={styles.titleUnderline} />
         </Animated.View>
 
