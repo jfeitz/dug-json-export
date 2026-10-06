@@ -1,0 +1,1064 @@
+<title>Cluedoku 3D</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=IM+Fell+English:ital@0;1&display=swap">
+
+<style>
+/* Layout: full-screen 3D canvas with floating noir UI panels */
+:root {
+  color-scheme: dark;
+  --bg:       #090604;
+  --surf:     #161008;
+  --surf2:    #201508;
+  --surf3:    #2A1D10;
+  --text:     #EED8BE;
+  --text2:    #96806A;
+  --text3:    #504030;
+  --red:      #B81830;
+  --gold:     #C08828;
+  --gold2:    #785510;
+  --border:   #241808;
+  --border2:  #382410;
+}
+
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+* { box-sizing: border-box; }
+
+#scene {
+  position: fixed; inset: 0; display: block;
+  width: 100% !important; height: 100% !important;
+  touch-action: none;
+}
+
+#ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+
+/* ── SCREENS ── */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  pointer-events: all;
+}
+
+/* Case Select */
+#sel {
+  background: rgba(9,6,4,0.97);
+  align-items: center; justify-content: flex-start;
+  padding: max(env(safe-area-inset-top,0px),48px) 20px max(env(safe-area-inset-bottom,0px),32px);
+  overflow-y: auto; gap: 28px;
+}
+
+.sel-logo { text-align: center; }
+.sel-eye {
+  font: 700 10px/1 system-ui; letter-spacing: 4px;
+  color: var(--gold); text-transform: uppercase;
+}
+.sel-title {
+  font: 700 56px/1 'Playfair Display', serif;
+  color: var(--text); margin: 10px 0 6px; letter-spacing: -1px;
+}
+.sel-rule {
+  width: 48px; height: 3px; background: var(--red);
+  border-radius: 2px; margin: 0 auto 10px;
+}
+.sel-sub { font: italic 15px/1.4 'IM Fell English',serif; color: var(--text2); }
+
+.cards { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 440px; }
+
+.case-card {
+  background: var(--surf); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 18px 20px 18px 20px;
+  text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  position: relative; overflow: hidden;
+  transition: background .15s, border-color .15s;
+}
+.case-card:active { background: var(--surf2); }
+.case-card-accent {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 14px 0 0 14px;
+}
+.case-card-num {
+  font: 700 9px/1 system-ui; letter-spacing: 3px;
+  color: var(--gold2); text-transform: uppercase; margin-bottom: 6px;
+}
+.case-card-title {
+  font: 700 19px/1.1 'Playfair Display',serif; color: var(--text); margin-bottom: 4px;
+}
+.case-card-sub { font: italic 13px/1.3 'IM Fell English',serif; color: var(--text2); margin-bottom: 12px; }
+.case-card-meta { display: flex; align-items: center; gap: 10px; }
+.diff-tag {
+  font: 700 9px/1 system-ui; letter-spacing: 1px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 4px; border: 1px solid currentColor;
+}
+.d-easy { color: #4CAF50; } .d-medium { color: #FF9800; } .d-hard { color: #F44336; }
+.case-card-setting { font: 11px/1 system-ui; color: var(--text3); }
+.case-card-arr {
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  color: var(--red); font-size: 20px; line-height: 1;
+}
+
+/* HUD */
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: env(safe-area-inset-top,0px) 16px 0;
+  background: linear-gradient(to bottom, rgba(9,6,4,.92) 0%, transparent 100%);
+  pointer-events: all;
+}
+.hud-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0 24px;
+}
+.hud-back {
+  width: 36px; height: 36px; border-radius: 18px;
+  background: var(--surf); border: 1px solid var(--border2);
+  color: var(--text2); font-size: 18px; line-height: 36px;
+  text-align: center; cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.hud-info { flex: 1; min-width: 0; }
+.hud-eye { font: 700 9px/1 system-ui; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+.hud-name {
+  font: 700 14px/1.2 'Playfair Display',serif; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hud-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surf); border: 1px solid var(--gold2);
+  border-radius: 8px; padding: 6px 10px; flex-shrink: 0;
+}
+.hud-badge-label { font: 700 13px/1 system-ui; color: var(--gold); }
+
+/* Bottom bar */
+#bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 0 16px calc(env(safe-area-inset-bottom,0px) + 20px);
+  background: linear-gradient(to top, rgba(9,6,4,.92) 0%, transparent 100%);
+  pointer-events: all;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.bar-hint { font: italic 12px/1 'IM Fell English',serif; color: var(--text3); text-align: center; }
+.bar-btn {
+  width: 100%; max-width: 360px; padding: 16px;
+  border-radius: 12px; border: none; cursor: pointer;
+  font: 700 13px/1 system-ui; letter-spacing: 2px; text-transform: uppercase;
+  -webkit-tap-highlight-color: transparent;
+}
+.bar-btn.on { background: var(--red); color: #fff; }
+.bar-btn.off { background: var(--surf3); color: var(--text3); letter-spacing: 1px; font-size: 12px; font-weight: 600; }
+
+/* Clue card */
+#clue {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--surf); border-top: 1px solid var(--border2);
+  border-radius: 22px 22px 0 0;
+  padding: 0 20px calc(env(safe-area-inset-bottom,0px) + 24px);
+  pointer-events: all; z-index: 40;
+  transform: translateY(100%);
+  transition: transform .35s cubic-bezier(.32,.72,0,1);
+  max-height: 70vh; overflow-y: auto;
+}
+#clue.open { transform: translateY(0); }
+.clue-pull {
+  width: 40px; height: 4px; background: var(--border2);
+  border-radius: 2px; margin: 14px auto 20px;
+}
+.clue-badge {
+  display: inline-block; padding: 3px 8px; border-radius: 4px;
+  font: 700 9px/1 system-ui; letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.clue-badge.new { background: var(--red); color: #fff; }
+.clue-badge.seen { background: var(--surf3); color: var(--text3); }
+.clue-obj { font: 700 10px/1 system-ui; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; margin-bottom: 10px; }
+.clue-body { font: italic 16px/1.65 'IM Fell English',serif; color: var(--text); margin-bottom: 22px; }
+.clue-close {
+  width: 100%; padding: 14px; border-radius: 10px;
+  background: var(--surf2); border: 1px solid var(--border2);
+  color: var(--text2); font: 14px/1 system-ui; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Accusation */
+#acc {
+  background: rgba(9,6,4,.98); overflow-y: auto;
+  padding: max(env(safe-area-inset-top,0px),20px) 20px max(env(safe-area-inset-bottom,0px),20px);
+  gap: 18px;
+}
+.acc-head { display: flex; align-items: center; gap: 12px; }
+.acc-back {
+  width: 36px; height: 36px; border-radius: 18px;
+  background: var(--surf); border: 1px solid var(--border2);
+  color: var(--text2); font-size: 18px; line-height: 36px;
+  text-align: center; cursor: pointer; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.acc-head-txt { flex: 1; }
+.acc-eye { font: 700 9px/1 system-ui; letter-spacing: 3px; color: var(--red); text-transform: uppercase; }
+.acc-title { font: 700 24px/1.1 'Playfair Display',serif; color: var(--text); }
+.acc-warn {
+  display: flex; gap: 10px; background: var(--surf3);
+  border: 1px solid var(--gold2); border-radius: 10px; padding: 14px;
+}
+.acc-warn-icon { font-size: 16px; flex-shrink: 0; }
+.acc-warn-txt { font: 13px/1.5 system-ui; color: var(--text2); }
+.acc-sec { display: flex; flex-direction: column; gap: 8px; }
+.acc-sec-head { display: flex; align-items: center; gap: 8px; }
+.acc-sec-title { font: 700 9px/1 system-ui; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+.acc-item {
+  display: flex; align-items: center; gap: 12px; padding: 14px;
+  background: var(--surf); border: 1px solid var(--border2);
+  border-radius: 10px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .12s, border-color .12s;
+}
+.acc-item.sel { background: var(--surf3); border-color: var(--red); }
+.acc-radio {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--border2); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .12s;
+}
+.acc-item.sel .acc-radio { border-color: var(--red); }
+.acc-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red); opacity: 0; transition: opacity .12s;
+}
+.acc-item.sel .acc-dot { opacity: 1; }
+.acc-item-name {
+  font: 600 15px/1.1 'IM Fell English',serif;
+  color: var(--text2); transition: color .12s;
+}
+.acc-item.sel .acc-item-name { color: var(--text); }
+.acc-item-sub { font: 11px/1 system-ui; color: var(--text3); margin-top: 3px; }
+.acc-summary {
+  background: var(--surf); border: 1px solid var(--red);
+  border-radius: 12px; padding: 20px; text-align: center;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.acc-sum-eye { font: 700 9px/1 system-ui; letter-spacing: 3px; color: var(--red); text-transform: uppercase; margin-bottom: 8px; }
+.acc-sum-name { font: 700 18px/1.2 'Playfair Display',serif; color: var(--text); }
+.acc-sum-with { font: italic 12px/1 'IM Fell English',serif; color: var(--text3); }
+.acc-submit {
+  width: 100%; padding: 18px; background: var(--red);
+  border: none; border-radius: 12px; color: #fff;
+  font: 700 13px/1 system-ui; letter-spacing: 2px; text-transform: uppercase;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.acc-submit:disabled { background: var(--surf3); color: var(--text3); letter-spacing: 0; }
+
+/* Result */
+#res {
+  background: rgba(9,6,4,.98); overflow-y: auto;
+  padding: max(env(safe-area-inset-top,0px),30px) 20px max(env(safe-area-inset-bottom,0px),30px);
+  align-items: center; gap: 24px;
+}
+.res-verdict {
+  width: 100%; max-width: 440px;
+  border-radius: 20px; overflow: hidden; border: 1px solid var(--border2);
+}
+.res-v-inner {
+  padding: 40px 24px; display: flex; flex-direction: column;
+  align-items: center; gap: 12px;
+}
+.res-v-inner.ok { background: linear-gradient(135deg,#1a3a18,#0d1a0c); }
+.res-v-inner.bad { background: linear-gradient(135deg,#3a1818,#1a0c0c); }
+.res-icon { font-size: 64px; }
+.res-verdict-title {
+  font: 700 30px/1 'Playfair Display',serif; letter-spacing: 1px; text-align: center;
+}
+.res-v-inner.ok .res-verdict-title { color: #6cbf6c; }
+.res-v-inner.bad .res-verdict-title { color: #ff5555; }
+.res-verdict-sub { font: italic 14px/1.55 'IM Fell English',serif; color: var(--text2); text-align: center; }
+.res-reveal {
+  width: 100%; max-width: 440px;
+  background: var(--surf); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 10px;
+}
+.res-reveal-eye { font: 700 9px/1 system-ui; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+.res-reveal-txt { font: 700 18px/1.4 'Playfair Display',serif; color: var(--text); }
+.res-btns { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 10px; }
+.res-btn-p {
+  width: 100%; padding: 18px; background: var(--red); border: none;
+  border-radius: 12px; color: #fff; font: 700 13px/1 system-ui;
+  letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.res-btn-s {
+  width: 100%; padding: 16px;
+  background: var(--surf); border: 1px solid var(--border2);
+  border-radius: 12px; color: var(--text2); font: 600 14px/1 system-ui;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+</style>
+
+<canvas id="scene"></canvas>
+
+<div id="ui">
+  <!-- Case Select -->
+  <div id="sel" class="screen">
+    <div class="sel-logo">
+      <div class="sel-eye">Investigation Files</div>
+      <div class="sel-title">Cluedoku</div>
+      <div class="sel-rule"></div>
+      <div class="sel-sub">Explore the scene. Uncover the truth.</div>
+    </div>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- HUD (during game) -->
+  <div id="hud" hidden>
+    <div class="hud-row">
+      <div class="hud-back" id="hud-back">←</div>
+      <div class="hud-info">
+        <div class="hud-eye">Active Case</div>
+        <div class="hud-name" id="hud-name"></div>
+      </div>
+      <div class="hud-badge">
+        <span style="font-size:14px">🔍</span>
+        <span class="hud-badge-label" id="hud-count">0/6</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div id="bar" hidden>
+    <div class="bar-hint" id="bar-hint">Tap objects to examine them</div>
+    <button class="bar-btn off" id="bar-btn" disabled>Examine more evidence first</button>
+  </div>
+
+  <!-- Clue card -->
+  <div id="clue">
+    <div class="clue-pull"></div>
+    <div id="clue-badge" class="clue-badge new">New Evidence</div>
+    <div class="clue-obj" id="clue-obj"></div>
+    <div class="clue-body" id="clue-body"></div>
+    <button class="clue-close" id="clue-close">Continue Investigation</button>
+  </div>
+
+  <!-- Accusation screen -->
+  <div id="acc" class="screen" hidden></div>
+
+  <!-- Result screen -->
+  <div id="res" class="screen" hidden></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ═══════════════════════════════════════════════════════
+// CASE DATA
+// ═══════════════════════════════════════════════════════
+
+const CASES = [
+  {
+    id: 'case1',
+    title: 'Death at Blackwood Manor',
+    subtitle: 'A shot rings out in the library…',
+    victim: 'Lord Edmund Blackwood',
+    setting: 'Yorkshire, 1923',
+    difficulty: 'easy',
+    accentColor: '#8B2020',
+    scene: {
+      bg: 0x080503,
+      fog: [0x080503, 0.07],
+      ambient: [0xFF9940, 0.12],
+      lights: [
+        { color: 0xFF9950, intensity: 1.8, pos: [0, 3.5, 1.5] },
+        { color: 0x3322AA, intensity: 0.4, pos: [-4, 2, -2] },
+      ],
+      floor: 0x241408, walls: 0x161005, ceil: 0x0E0A04,
+    },
+    suspects: [
+      { id: 'victor', name: 'Victor Crane',     role: 'Business Partner' },
+      { id: 'rose',   name: 'Rose Ashford',     role: 'Socialite' },
+      { id: 'graves', name: 'Dr. Miles Graves', role: 'Family Physician' },
+      { id: 'evelyn', name: 'Lady Evelyn Moor', role: 'Estranged Widow' },
+    ],
+    weapons: [
+      { id: 'pistol',  name: 'Antique Pistol',       desc: 'A .455 Webley revolver' },
+      { id: 'opener',  name: 'Silver Letter Opener', desc: 'Monogrammed blade' },
+      { id: 'hemlock', name: 'Hemlock Tea',           desc: 'A poisoned blend' },
+      { id: 'garrote', name: 'Silk Garrote',          desc: 'A knotted silk cord' },
+    ],
+    rooms: [
+      { id: 'library',     name: 'Library',          desc: 'First editions, cold fireplace' },
+      { id: 'conserv',     name: 'Conservatory',     desc: 'Glass walls, orchids' },
+      { id: 'study',       name: 'East Wing Study',  desc: 'The doctor\'s papers' },
+      { id: 'cellar',      name: 'Wine Cellar',      desc: 'Locked from 10:30 PM' },
+    ],
+    solution: { suspect: 'victor', weapon: 'pistol', room: 'library' },
+    objects: [
+      { id:'shelf',    name:'Bookshelves',      pos:[-3.3,1.3,-3.8], size:[1.5,2.6,0.5], rot:0,    color:0x5C3A1E,
+        clue:'A spent .455 Webley cartridge was discovered behind the first-edition shelf. The air still carried the acrid scent of burnt powder.' },
+      { id:'desk',     name:'Writing Desk',     pos:[0.5,0.45,0.5],  size:[2.2,0.9,1.2], rot:0,    color:0x4A2A10,
+        clue:'The silver letter opener lay undisturbed — clean, unbloodied, precisely placed. It was not the murder weapon.' },
+      { id:'fire',     name:'Fireplace',        pos:[0,1.2,-4.3],    size:[2.2,2.4,0.6], rot:0,    color:0x222020,
+        clue:'Cold ash. No fire was lit that evening — yet a heel-mark had been pressed into the ash. Someone stood here after the guests retired.' },
+      { id:'chair',    name:'Leather Armchair', pos:[2.8,0.55,1.2],  size:[1.0,1.1,1.0], rot:0,    color:0x3A2010,
+        clue:'A monogrammed cufflink found between the cushions. The initials engraved upon it: V.C. — Victor Crane.' },
+      { id:'body',     name:'Body Outline',     pos:[-1,0.04,1.8],   size:[0.65,0.06,1.9],rot:0.3, color:0xAA2020,
+        clue:'Lord Blackwood fell here at 11:47 PM. A single gunshot wound to the chest. He did not suffer long.' },
+      { id:'decanter', name:'Whiskey Decanter', pos:[-2.2,1.0,-0.3], size:[0.3,0.65,0.3],rot:0,    color:0x7A4010,
+        clue:'Two glasses poured. One left untouched. Victor Crane was the last man to share a whiskey with Lord Blackwood that evening.' },
+    ],
+  },
+  {
+    id: 'case2',
+    title: 'The Poisoned Waltz',
+    subtitle: 'The Countess drank her last glass…',
+    victim: 'Countess Isabella Vane',
+    setting: 'Vienna, 1931',
+    difficulty: 'medium',
+    accentColor: '#1A3A8A',
+    scene: {
+      bg: 0x04060A,
+      fog: [0x04060A, 0.07],
+      ambient: [0xCCDDFF, 0.18],
+      lights: [
+        { color: 0xFFEECC, intensity: 2.0, pos: [0, 4.5, 0] },
+        { color: 0x2244AA, intensity: 0.6, pos: [3, 2, 3] },
+      ],
+      floor: 0x1A1A20, walls: 0x141418, ceil: 0x0C0C10,
+    },
+    suspects: [
+      { id: 'baron',    name: 'Baron Klaus Schmidt',     role: 'Rival Noble' },
+      { id: 'hettie',   name: 'Henrietta Finch',         role: 'Lady\'s Maid' },
+      { id: 'maestro',  name: 'Maestro Delacroix',       role: 'Orchestra Conductor' },
+      { id: 'ambass',   name: 'Ambassador René Duval',   role: 'Diplomat' },
+    ],
+    weapons: [
+      { id: 'arsenic',  name: 'Arsenic Powder',    desc: 'Dissolved in champagne' },
+      { id: 'crystal',  name: 'Crystal Decanter',  desc: 'Heavy lead crystal' },
+      { id: 'pistol2',  name: 'Pocket Pistol',     desc: 'A .22 calibre' },
+      { id: 'stiletto', name: 'Jewelled Stiletto', desc: 'Hidden in a walking cane' },
+    ],
+    rooms: [
+      { id: 'ballroom',    name: 'Grand Ballroom',    desc: 'Where the Countess fell' },
+      { id: 'antechamber', name: 'Antechamber',       desc: 'Off the ballroom — for refreshments' },
+      { id: 'kitchen2',    name: 'Estate Kitchen',    desc: 'Below stairs' },
+      { id: 'terrace2',    name: 'East Terrace',      desc: 'Cold, open air' },
+    ],
+    solution: { suspect: 'hettie', weapon: 'arsenic', room: 'antechamber' },
+    objects: [
+      { id:'tray',    name:'Silver Service Tray', pos:[-1,1.0,0],   size:[1.2,0.06,0.8],rot:0,  color:0x909090,
+        clue:'Trace amounts of arsenic were found on the tray rim. Only one person handled this tray that evening — Henrietta Finch.' },
+      { id:'table2',  name:'Champagne Table',     pos:[1.5,0.6,-1], size:[1.5,1.2,1.0], rot:0,  color:0xF0EDE8,
+        clue:"The Countess's personal glass was prepared here in the Antechamber — not in the ballroom, as the guests first reported." },
+      { id:'fire2',   name:'Fireplace Remains',   pos:[0,1.2,-4.3], size:[2.2,2.4,0.6], rot:0,  color:0x222020,
+        clue:"A partially burned note recovered from the ash: '…she will not remember what she promised you.' The handwriting matches Henrietta's." },
+      { id:'vanity',  name:"Lady's Vanity",        pos:[-3.5,1.1,-2],size:[1.4,2.2,0.5],rot:0,  color:0xE8E4DC,
+        clue:'The vanity mirror placed Henrietta in the Antechamber twice during the hour before the Countess collapsed — each time near the champagne.' },
+      { id:'coat',    name:"Lady's Coat",           pos:[3.0,1.2,2.0],size:[0.8,2.4,0.4],rot:0,  color:0x2A1A3A,
+        clue:"A letter of dismissal — signed by the Countess three days before the ball — was found folded in Henrietta's coat pocket." },
+      { id:'body2',   name:'Collapse Point',       pos:[0.5,0.04,2], size:[0.65,0.06,1.9],rot:0.1,color:0xAA2020,
+        clue:'The Countess fell here at 11:22 PM. Arsenic poisoning, confirmed by the attending physician. Death was certain from the first glass.' },
+    ],
+  },
+  {
+    id: 'case3',
+    title: 'Midnight in the Garden',
+    subtitle: 'The Ambassador never saw morning…',
+    victim: 'Ambassador René Duval',
+    setting: 'Loire Valley, 1938',
+    difficulty: 'hard',
+    accentColor: '#1A4A20',
+    scene: {
+      bg: 0x020508,
+      fog: [0x020508, 0.06],
+      ambient: [0xAABBCC, 0.2],
+      lights: [
+        { color: 0xBBCCDD, intensity: 1.2, pos: [5, 8, 5] },
+        { color: 0x445566, intensity: 0.5, pos: [-5, 3, -3] },
+      ],
+      floor: 0x0A180A, walls: 0x08140A, ceil: 0x050A06,
+    },
+    suspects: [
+      { id: 'evelyn2',  name: 'Lady Evelyn Moor',    role: 'British Attaché' },
+      { id: 'bauer',    name: 'Colonel Franz Bauer',  role: 'Military Attaché' },
+      { id: 'celeste',  name: 'Céleste Marchand',     role: 'Housekeeper' },
+      { id: 'pierre',   name: 'Pierre Vautrin',       role: 'Estate Gardener' },
+    ],
+    weapons: [
+      { id: 'garrote2', name: 'Silk Garrote',      desc: 'Military-precision knot' },
+      { id: 'pruner',   name: 'Pruning Knife',      desc: 'Pierre\'s own tool' },
+      { id: 'strych',   name: 'Strychnine Capsule', desc: 'Found in a brandy glass' },
+      { id: 'luger',    name: 'Luger Pistol',       desc: 'Unregistered German service weapon' },
+    ],
+    rooms: [
+      { id: 'garden',   name: 'Rose Garden',         desc: 'Where the body was found' },
+      { id: 'terrace3', name: 'South Terrace',        desc: 'A brandy glass on the balustrade' },
+      { id: 'study3',   name: "Ambassador's Study",   desc: 'Papers disturbed, safe left open' },
+      { id: 'chapel',   name: 'Estate Chapel',        desc: 'Used for covert meetings' },
+    ],
+    solution: { suspect: 'evelyn2', weapon: 'garrote2', room: 'garden' },
+    objects: [
+      { id:'roses',   name:'Rose Thorns',        pos:[-3,1.2,-1],  size:[1.5,2.4,1.5], rot:0,    color:0x1A3A18,
+        clue:'A fragment of lilac silk snagged on the thorns — not any colour worn by the household staff. Lady Evelyn had worn lilac that evening.' },
+      { id:'body3',   name:'Body Position',      pos:[0.5,0.04,1], size:[0.65,0.06,1.9],rot:0.15,color:0xAA2020,
+        clue:'Ambassador Duval was found here at dawn. Strangulation by thin cord, knotted with military precision. No sign of struggle.' },
+      { id:'bench',   name:'Garden Bench',       pos:[2.8,0.5,-1.5],size:[1.4,1.0,0.5],rot:0,   color:0x3A2A14,
+        clue:'Dew covered every surface from 11 PM onward — except one dry patch on this bench. Someone sat here between 11:05 and midnight.' },
+      { id:'gate',    name:'Iron Gate',          pos:[-4.3,1.5,0], size:[0.3,3.0,1.8], rot:0,    color:0x181818,
+        clue:'Fresh oil disturbed on the hinges. Someone opened this gate quietly, from the inside, in the dark — knowing exactly where the oil was kept.' },
+      { id:'file3',   name:'Intelligence File',  pos:[-2,1.0,-0.8],size:[0.4,0.05,0.6],rot:0.2,  color:0xE8E0D0,
+        clue:'Recovered from the Ambassador\'s safe: Lady Evelyn Moor had been operating as a double agent. Duval had discovered the truth three days before his death.' },
+      { id:'knife',   name:'Pruning Knife',      pos:[1.5,1.0,-0.5],size:[0.08,0.05,0.5],rot:0.4,color:0x888888,
+        clue:"Pierre's pruning knife: rusted, dirty, no blood. He hadn't sharpened it in weeks. This blade killed no one." },
+    ],
+  },
+];
+
+// ═══════════════════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 80);
+camera.position.set(0, 8, 11);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.set(0, 1.2, 0);
+controls.enablePan = false;
+controls.minDistance = 4;
+controls.maxDistance = 18;
+controls.minPolarAngle = Math.PI / 10;
+controls.maxPolarAngle = Math.PI * 0.52;
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+const scene = new THREE.Scene();
+
+// ═══════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════
+
+let activeCase = null;
+let foundClues = new Set();
+let interactiveObjects = [];
+let hoveredObj = null;
+let pulseClock = 0;
+const MIN_CLUES = 5;
+
+// ═══════════════════════════════════════════════════════
+// SCENE BUILDER
+// ═══════════════════════════════════════════════════════
+
+function clearScene() {
+  while (scene.children.length) scene.remove(scene.children[0]);
+  interactiveObjects = [];
+  hoveredObj = null;
+}
+
+function buildRoom(cData) {
+  const { bg, fog, ambient, lights, floor, walls, ceil } = cData.scene;
+
+  renderer.setClearColor(bg);
+  scene.fog = new THREE.FogExp2(fog[0], fog[1]);
+  scene.background = new THREE.Color(bg);
+
+  // Ambient
+  scene.add(new THREE.AmbientLight(ambient[0], ambient[1]));
+
+  // Point lights
+  for (const l of lights) {
+    const pt = new THREE.PointLight(l.color, l.intensity, 20, 1.5);
+    pt.position.set(...l.pos);
+    pt.castShadow = true;
+    pt.shadow.mapSize.set(512, 512);
+    pt.shadow.radius = 4;
+    scene.add(pt);
+    // Visible bulb
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 8, 8),
+      new THREE.MeshBasicMaterial({ color: l.color })
+    );
+    bulb.position.set(...l.pos);
+    scene.add(bulb);
+  }
+
+  const boxGeo = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  const mat = (hex, rough = 0.9, metal = 0) =>
+    new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
+
+  // Floor
+  const floorM = new THREE.Mesh(boxGeo(10, 0.1, 10), mat(floor, 0.95));
+  floorM.position.y = -0.05;
+  floorM.receiveShadow = true;
+  scene.add(floorM);
+
+  // Ceiling
+  const ceilM = new THREE.Mesh(boxGeo(10, 0.1, 10), mat(ceil, 0.95));
+  ceilM.position.y = 5.05;
+  scene.add(ceilM);
+
+  // Back wall
+  const bwall = new THREE.Mesh(boxGeo(10, 5, 0.2), mat(walls, 0.92));
+  bwall.position.set(0, 2.5, -5);
+  bwall.receiveShadow = true;
+  scene.add(bwall);
+
+  // Left wall
+  const lwall = new THREE.Mesh(boxGeo(0.2, 5, 10), mat(walls, 0.92));
+  lwall.position.set(-5, 2.5, 0);
+  lwall.receiveShadow = true;
+  scene.add(lwall);
+
+  // Right wall
+  const rwall = new THREE.Mesh(boxGeo(0.2, 5, 10), mat(walls, 0.92));
+  rwall.position.set(5, 2.5, 0);
+  rwall.receiveShadow = true;
+  scene.add(rwall);
+
+  // Interactive objects
+  for (const obj of cData.objects) {
+    const [w, h, d] = obj.size;
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshStandardMaterial({
+        color: obj.color,
+        roughness: 0.85,
+        metalness: 0.05,
+        emissive: new THREE.Color(obj.color).multiplyScalar(0.15),
+        emissiveIntensity: 0.4,
+      })
+    );
+    mesh.position.set(...obj.pos);
+    mesh.rotation.y = obj.rot;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.userData = { objData: obj, baseEmissiveIntensity: 0.4, originalY: obj.pos[1] };
+    scene.add(mesh);
+    interactiveObjects.push(mesh);
+
+    // Small sphere marker on top of each object (subtle gold hint)
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0xC08828, emissive: 0xC08828, emissiveIntensity: 0.8 })
+    );
+    marker.position.set(obj.pos[0], obj.pos[1] + h / 2 + 0.2, obj.pos[2]);
+    marker.userData = { isMarker: true, linkedMesh: mesh };
+    scene.add(marker);
+    mesh.userData.marker = marker;
+  }
+
+  controls.target.set(0, 1.2, 0);
+  camera.position.set(0, 8, 11);
+  controls.update();
+}
+
+// ═══════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════
+
+const raycaster = new THREE.Raycaster();
+let tapStart = null;
+let tapMoved = false;
+
+function getHit(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+  const hits = raycaster.intersectObjects(interactiveObjects, false);
+  if (hits.length) return hits[0].object;
+  // Check if a marker was hit
+  const markers = interactiveObjects.map(o => o.userData.marker).filter(Boolean);
+  const mHits = raycaster.intersectObjects(markers, false);
+  if (mHits.length) return mHits[0].object.userData.linkedMesh;
+  return null;
+}
+
+canvas.addEventListener('mousedown', e => { tapStart = { x: e.clientX, y: e.clientY }; tapMoved = false; });
+canvas.addEventListener('mousemove', e => {
+  if (!tapStart) return;
+  if (Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) > 8) tapMoved = true;
+
+  // Hover highlight
+  const hit = getHit(e.clientX, e.clientY);
+  setHover(hit);
+});
+canvas.addEventListener('mouseup', e => {
+  if (!tapMoved && tapStart) onTap(e.clientX, e.clientY);
+  tapStart = null;
+});
+
+canvas.addEventListener('touchstart', e => {
+  tapStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  tapMoved = false;
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!tapStart) return;
+  if (Math.hypot(e.touches[0].clientX - tapStart.x, e.touches[0].clientY - tapStart.y) > 12) tapMoved = true;
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  if (!tapMoved && tapStart) {
+    onTap(tapStart.x, tapStart.y);
+    setHover(null);
+  }
+  tapStart = null;
+});
+
+function setHover(mesh) {
+  if (hoveredObj === mesh) return;
+  if (hoveredObj) {
+    hoveredObj.material.emissiveIntensity = hoveredObj.userData.baseEmissiveIntensity;
+    canvas.style.cursor = 'grab';
+  }
+  hoveredObj = mesh;
+  if (hoveredObj) {
+    hoveredObj.material.emissiveIntensity = 1.2;
+    canvas.style.cursor = 'pointer';
+  }
+}
+
+function onTap(x, y) {
+  if (!activeCase) return;
+  if (document.getElementById('clue').classList.contains('open')) return;
+
+  const hit = getHit(x, y);
+  if (!hit || !hit.userData.objData) return;
+
+  const objData = hit.userData.objData;
+  const isNew = !foundClues.has(objData.id);
+  if (isNew) {
+    foundClues.add(objData.id);
+    markExamined(hit);
+    updateHUD();
+    updateBar();
+  }
+
+  showClueCard(objData, isNew);
+}
+
+function markExamined(mesh) {
+  mesh.material.emissiveIntensity = 0.05;
+  mesh.userData.baseEmissiveIntensity = 0.05;
+  if (mesh.userData.marker) {
+    mesh.userData.marker.material.emissiveIntensity = 0.1;
+    mesh.userData.marker.material.color.set(0x404040);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════
+
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h, false);
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+function animate(t) {
+  requestAnimationFrame(animate);
+  controls.update();
+  pulseClock = t * 0.001;
+
+  // Pulse unexamined markers
+  for (const mesh of interactiveObjects) {
+    if (mesh.userData.marker && !foundClues.has(mesh.userData.objData.id)) {
+      const pulse = 0.6 + Math.sin(pulseClock * 2.5 + mesh.position.x) * 0.4;
+      mesh.userData.marker.material.emissiveIntensity = pulse;
+      const s = 0.8 + Math.sin(pulseClock * 2.5 + mesh.position.x) * 0.25;
+      mesh.userData.marker.scale.setScalar(s);
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
+
+// ═══════════════════════════════════════════════════════
+// UI MANAGEMENT
+// ═══════════════════════════════════════════════════════
+
+const $ = id => document.getElementById(id);
+
+function showScreen(id) {
+  ['sel','hud','bar','acc','res'].forEach(s => {
+    const el = $(s);
+    if (!el) return;
+    if (s === id) {
+      el.hidden = false;
+    } else if (s === 'sel' || s === 'acc' || s === 'res') {
+      el.hidden = true;
+    }
+  });
+  if (id === 'hud') {
+    $('hud').hidden = false;
+    $('bar').hidden = false;
+  }
+}
+
+// ── Case Select ──
+function renderCaseSelect() {
+  const container = $('cards');
+  container.innerHTML = '';
+  for (const c of CASES) {
+    const btn = document.createElement('div');
+    btn.className = 'case-card';
+    const diffClass = { easy:'d-easy', medium:'d-medium', hard:'d-hard' }[c.difficulty];
+    btn.innerHTML = `
+      <div class="case-card-accent" style="background:${c.accentColor}"></div>
+      <div class="case-card-num">Case ${CASES.indexOf(c)+1}</div>
+      <div class="case-card-title">${c.title}</div>
+      <div class="case-card-sub">${c.subtitle}</div>
+      <div class="case-card-meta">
+        <span class="diff-tag ${diffClass}">${c.difficulty}</span>
+        <span class="case-card-setting">${c.setting}</span>
+      </div>
+      <div class="case-card-arr">→</div>
+    `;
+    btn.addEventListener('click', () => startCase(c.id));
+    container.appendChild(btn);
+  }
+  showScreen('sel');
+}
+
+// ── Start Case ──
+function startCase(caseId) {
+  activeCase = CASES.find(c => c.id === caseId);
+  foundClues = new Set();
+  clearScene();
+  buildRoom(activeCase);
+
+  $('hud-name').textContent = activeCase.title;
+  updateHUD();
+  updateBar();
+  showScreen('hud');
+}
+
+function updateHUD() {
+  const total = activeCase.objects.length;
+  $('hud-count').textContent = `${foundClues.size}/${total}`;
+}
+
+function updateBar() {
+  const btn = $('bar-btn');
+  const canAccuse = foundClues.size >= MIN_CLUES;
+  if (canAccuse) {
+    btn.textContent = 'MAKE YOUR ACCUSATION';
+    btn.className = 'bar-btn on';
+    btn.disabled = false;
+  } else {
+    const need = MIN_CLUES - foundClues.size;
+    btn.textContent = `Find ${need} more clue${need !== 1 ? 's' : ''}`;
+    btn.className = 'bar-btn off';
+    btn.disabled = true;
+  }
+}
+
+// ── Clue Card ──
+function showClueCard(objData, isNew) {
+  $('clue-badge').textContent = isNew ? 'New Evidence' : 'Previously Examined';
+  $('clue-badge').className = 'clue-badge ' + (isNew ? 'new' : 'seen');
+  $('clue-obj').textContent = objData.name;
+  $('clue-body').textContent = '"' + objData.clue + '"';
+  document.getElementById('clue').classList.add('open');
+}
+
+$('clue-close').addEventListener('click', () => {
+  document.getElementById('clue').classList.remove('open');
+});
+
+// ── HUD Back ──
+$('hud-back').addEventListener('click', () => {
+  document.getElementById('clue').classList.remove('open');
+  activeCase = null;
+  clearScene();
+  renderCaseSelect();
+});
+
+// ── Accusation ──
+let selSuspect = null, selWeapon = null, selRoom = null;
+
+$('bar-btn').addEventListener('click', () => {
+  if (!activeCase || foundClues.size < MIN_CLUES) return;
+  selSuspect = selWeapon = selRoom = null;
+  renderAccusation();
+});
+
+function renderAccusation() {
+  const c = activeCase;
+  const el = $('acc');
+  el.innerHTML = `
+    <div class="acc-head">
+      <div class="acc-back" id="acc-back">←</div>
+      <div class="acc-head-txt">
+        <div class="acc-eye">Make Your Accusation</div>
+        <div class="acc-title">Who did it?</div>
+      </div>
+    </div>
+    <div class="acc-warn">
+      <div class="acc-warn-icon">⚠️</div>
+      <div class="acc-warn-txt">Choose carefully. You have one chance to name the killer, the weapon, and the location.</div>
+    </div>
+    ${renderPicker('suspect','The Murderer','Who committed the crime?',c.suspects,'sel-s')}
+    ${renderPicker('weapon','The Weapon','What was used?',c.weapons,'sel-w')}
+    ${renderPicker('room','The Location','Where did it happen?',c.rooms,'sel-r')}
+    <div id="acc-summary" hidden>
+      <div class="acc-summary">
+        <div class="acc-sum-eye">Your Accusation</div>
+        <div class="acc-sum-name" id="sum-suspect"></div>
+        <div class="acc-sum-with">with the</div>
+        <div class="acc-sum-name" id="sum-weapon"></div>
+        <div class="acc-sum-with">in the</div>
+        <div class="acc-sum-name" id="sum-room"></div>
+      </div>
+    </div>
+    <button class="acc-submit" id="acc-submit" disabled>Select all three above</button>
+    <div style="height:8px"></div>
+  `;
+
+  el.hidden = false;
+  $('hud').hidden = true;
+  $('bar').hidden = true;
+
+  $('acc-back').addEventListener('click', () => {
+    el.hidden = true;
+    $('hud').hidden = false;
+    $('bar').hidden = false;
+  });
+
+  // Wire up picker items
+  el.querySelectorAll('.acc-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const group = item.dataset.group;
+      const id = item.dataset.id;
+      el.querySelectorAll(`.acc-item[data-group="${group}"]`).forEach(i => i.classList.remove('sel'));
+      item.classList.add('sel');
+      if (group === 'suspect') selSuspect = id;
+      if (group === 'weapon')  selWeapon  = id;
+      if (group === 'room')    selRoom    = id;
+      updateAccSummary();
+    });
+  });
+
+  $('acc-submit').addEventListener('click', submitAccusation);
+}
+
+function renderPicker(group, title, subtitle, items, cls) {
+  return `
+    <div class="acc-sec">
+      <div class="acc-sec-head">
+        <div class="acc-sec-title">${title}</div>
+      </div>
+      ${items.map(item => `
+        <div class="acc-item" data-group="${group}" data-id="${item.id}">
+          <div class="acc-radio"><div class="acc-dot"></div></div>
+          <div>
+            <div class="acc-item-name">${item.name}</div>
+            <div class="acc-item-sub">${item.role ?? item.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function updateAccSummary() {
+  const c = activeCase;
+  const s = c.suspects.find(x => x.id === selSuspect);
+  const w = c.weapons.find(x => x.id === selWeapon);
+  const r = c.rooms.find(x => x.id === selRoom);
+  const ready = s && w && r;
+
+  const summary = $('acc-summary');
+  const btn = $('acc-submit');
+  summary.hidden = !ready;
+  if (ready) {
+    $('sum-suspect').textContent = s.name;
+    $('sum-weapon').textContent = w.name;
+    $('sum-room').textContent = r.name;
+    btn.textContent = 'SUBMIT ACCUSATION';
+    btn.disabled = false;
+  }
+}
+
+function submitAccusation() {
+  const c = activeCase;
+  const sol = c.solution;
+  const correct = selSuspect === sol.suspect && selWeapon === sol.weapon && selRoom === sol.room;
+
+  const killer = c.suspects.find(x => x.id === sol.suspect);
+  const weapon = c.weapons.find(x => x.id === sol.weapon);
+  const room   = c.rooms.find(x => x.id === sol.room);
+
+  renderResult(correct, c, killer, weapon, room);
+}
+
+// ── Result ──
+function renderResult(correct, c, killer, weapon, room) {
+  const el = $('res');
+  el.innerHTML = `
+    <div class="res-verdict">
+      <div class="res-v-inner ${correct ? 'ok' : 'bad'}">
+        <div class="res-icon">${correct ? '✅' : '❌'}</div>
+        <div class="res-verdict-title">${correct ? 'Case Closed' : 'Wrong Accusation'}</div>
+        <div class="res-verdict-sub">${
+          correct
+          ? 'Your deduction was flawless. Justice is served.'
+          : 'The killer walks free. The case goes cold.'
+        }</div>
+      </div>
+    </div>
+    <div class="res-reveal">
+      <div class="res-reveal-eye">The Truth</div>
+      <div class="res-reveal-txt">
+        ${killer.name} murdered ${c.victim} with the ${weapon.name}, in the ${room.name}.
+      </div>
+    </div>
+    <div class="res-btns">
+      ${!correct ? `<button class="res-btn-s" id="res-retry">Try Again</button>` : ''}
+      <button class="res-btn-p" id="res-cases">
+        ${correct ? 'Next Case →' : 'Back to Cases'}
+      </button>
+    </div>
+    <div style="height:8px"></div>
+  `;
+
+  $('acc').hidden = true;
+  el.hidden = false;
+
+  $('res-cases').addEventListener('click', () => {
+    el.hidden = true;
+    activeCase = null;
+    clearScene();
+    renderCaseSelect();
+  });
+
+  const retry = $('res-retry');
+  if (retry) {
+    retry.addEventListener('click', () => {
+      el.hidden = true;
+      startCase(c.id);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+
+renderCaseSelect();
+</script>

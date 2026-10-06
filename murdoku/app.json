@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Cluedoku",
+    "slug": "cluedoku",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D0A08"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cluedoku.game",
+      "buildNumber": "1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D0A08"
+      },
+      "package": "com.cluedoku.game"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
